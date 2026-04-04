@@ -8,8 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = TimerViewModel()
-    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject var viewModel: TimerViewModel
 
     var body: some View {
         ZStack {
@@ -41,16 +40,6 @@ struct ContentView: View {
                 viewModel.stopCompression()
             }
         }, perform: {})
-        .onChange(of: scenePhase) { _, newPhase in
-            switch newPhase {
-            case .background:
-                viewModel.sceneDidEnterBackground()
-            case .active:
-                viewModel.sceneDidEnterForeground()
-            default:
-                break
-            }
-        }
     }
 
     private func formatted(_ time: TimeInterval) -> String {
@@ -62,5 +51,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(viewModel: TimerViewModel())
 }

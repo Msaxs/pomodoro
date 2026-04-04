@@ -163,17 +163,23 @@ final class TimerViewModel: ObservableObject {
     // MARK: - Haptics
 
     private func hapticLight() {
+        #if os(iOS)
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.impactOccurred()
+        #endif
     }
 
     private func hapticMedium() {
+        #if os(iOS)
         let gen = UIImpactFeedbackGenerator(style: .medium)
         gen.impactOccurred()
+        #endif
     }
 
     private func hapticWarning() {
+        #if os(iOS)
         let gen = UINotificationFeedbackGenerator()
         gen.notificationOccurred(.warning)
+        #endif
     }
 }

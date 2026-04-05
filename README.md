@@ -16,11 +16,11 @@ Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence 
 
 | Stage | Name | Duration |
 |-------|------|----------|
-| 01/05 | PREPARING | 2m 30s |
-| 02/05 | DOMINATING | 25m |
-| 03/05 | RECOVERING | 2m 30s |
-| 04/05 | DOMINATING | 25m |
-| 05/05 | RECOVERING | 5m |
+| 01 | PREPARING | 2m 30s |
+| 02 | DOMINATING | 25m |
+| 03 | RECOVERING | 2m 30s |
+| 04 | DOMINATING | 25m |
+| 05 | RECOVERING | 5m |
 
 ---
 

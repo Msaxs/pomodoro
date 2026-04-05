@@ -17,9 +17,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         .landscape
     }
 
-    // Called by iOS before the process is terminated — end all activities immediately
+    // Called by iOS before the process is terminated — block until Island is gone
     func applicationWillTerminate(_ application: UIApplication) {
-        ActivityManager.shared.endAllActivities()
+        ActivityManager.shared.terminateAllNow()
     }
 }
 #endif
@@ -43,7 +43,7 @@ struct pomodoroApp: App {
                         for: UIApplication.willTerminateNotification
                     )
                 ) { _ in
-                    ActivityManager.shared.endAllActivities()
+                    ActivityManager.shared.terminateAllNow()
                 }
                 #endif
         }
@@ -51,10 +51,7 @@ struct pomodoroApp: App {
             switch newPhase {
             case .background:
                 viewModel.sceneDidEnterBackground()
-                if !viewModel.isRunning {
-                    // Timer is idle — no reason for the Island to persist in background
-                    ActivityManager.shared.endAllActivities()
-                }
+                // Island stays alive — it will persist in background
             case .active:
                 viewModel.sceneDidEnterForeground()
             case .inactive:

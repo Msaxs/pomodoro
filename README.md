@@ -6,9 +6,7 @@ A Zero-UI Pomodoro timer for iPhone. No buttons. No clutter. Just time.
 
 ## What is this?
 
-Most productivity apps are full of controls. This one has none.
-
-Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence automatically. You interact with it through gestures alone — a tap to start or pause, a long press to fast-forward. The Dynamic Island keeps you informed without you ever opening the app.
+A landscape-only focus timer. Tap to start. Hold to accelerate. No buttons.
 
 ---
 
@@ -35,21 +33,19 @@ Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence 
 
 ## Dynamic Island
 
-A Live Activity runs throughout your session, visible on the Dynamic Island and Lock Screen:
-
-- **Compact:** Amber dot (left) + live countdown (right)
-- **Expanded:** Stage name, countdown timer, progress bar
-- **Paused state:** Dims to indicate the timer is paused
-- **Force-quit:** Island disappears immediately
+- **Compact:** Amber dot + live countdown
+- **Expanded:** Stage name, timer, progress bar
+- **Paused:** Dims
+- **Force-quit:** Disappears immediately
 
 ---
 
 ## Design Principles
 
-- **Zero UI** — no visible buttons, ever
-- **Landscape only** — the full screen is the timer
-- **Haptic contrast** — heavy thud to start, soft clicks to accelerate
-- **Amber Authority** — `#FFBF00` as the single brand color throughout
+- No buttons
+- Landscape only
+- Haptics sync with speed
+- Amber `#FFBF00` throughout
 
 ---
 

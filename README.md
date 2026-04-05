@@ -28,10 +28,8 @@ Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence 
 
 | Gesture | Action |
 |---------|--------|
-| **Tap** | Start / Pause |
-| **Long press (0.5s)** | Begin time acceleration |
+| **Single Tap** | Start / Pause |
 | **Hold** | Accelerate up to 240x speed |
-| **Release** | Return to normal speed |
 
 ---
 

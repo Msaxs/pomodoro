@@ -33,17 +33,6 @@ Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence 
 
 ---
 
-## Acceleration Engine
-
-The long-press triggers a dual-stage exponential speed-up:
-
-- **0 → 1.5s:** Spool from 1x to 120x
-- **1.5s → 2.5s:** Blast from 120x to 240x
-
-Haptic feedback stays in sync with every virtual second skipped — soft mechanical clicks that build into a high-frequency hum at peak speed.
-
----
-
 ## Dynamic Island
 
 A Live Activity runs throughout your session, visible on the Dynamic Island and Lock Screen:

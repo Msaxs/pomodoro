@@ -1,6 +1,6 @@
-# Pomodoro — Amber Authority
+# Pomodoro
 
-A Zero-UI Pomodoro timer for iPhone. No buttons. No clutter. Just time, touch, and haptics.
+A Zero-UI Pomodoro timer for iPhone. No buttons. No clutter. Just time.
 
 ---
 
@@ -12,15 +12,15 @@ Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence 
 
 ---
 
-## The 5-Stage Sequence
+## The Stage
 
 | Stage | Name | Duration |
 |-------|------|----------|
-| 01/05 | PREPARING | 2m 30s |
-| 02/05 | DOMINATING | 25m |
-| 03/05 | RECOVERING | 2m 30s |
-| 04/05 | DOMINATING | 25m |
-| 05/05 | RECOVERING | 5m |
+| 01 | PREPARING | 2m 30s |
+| 02 | DOMINATING | 25m |
+| 03 | RECOVERING | 2m 30s |
+| 04 | DOMINATING | 25m |
+| 05 | RECOVERING | 5m |
 
 ---
 
@@ -28,21 +28,8 @@ Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence 
 
 | Gesture | Action |
 |---------|--------|
-| **Tap** | Start / Pause |
-| **Long press (0.5s)** | Begin time acceleration |
-| **Hold** | Accelerate up to 240x speed |
-| **Release** | Return to normal speed |
-
----
-
-## Acceleration Engine
-
-The long-press triggers a dual-stage exponential speed-up:
-
-- **0 → 1.5s:** Spool from 1x to 120x
-- **1.5s → 2.5s:** Blast from 120x to 240x
-
-Haptic feedback stays in sync with every virtual second skipped — soft mechanical clicks that build into a high-frequency hum at peak speed.
+| **Single Tap** | Start / Pause |
+| **Hold** | Accelerate |
 
 ---
 

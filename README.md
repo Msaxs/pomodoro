@@ -1,6 +1,6 @@
-# Pomodoro — Amber Authority
+# Pomodoro
 
-A Zero-UI Pomodoro timer for iPhone. No buttons. No clutter. Just time, touch, and haptics.
+A Zero-UI Pomodoro timer for iPhone. No buttons. No clutter. Just time.
 
 ---
 
@@ -12,7 +12,7 @@ Pomodoro is a landscape-only focus timer that runs a 5-stage work/rest sequence 
 
 ---
 
-## The 5-Stage Sequence
+## The Stage
 
 | Stage | Name | Duration |
 |-------|------|----------|

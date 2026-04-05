@@ -34,10 +34,9 @@ enum PomodoroStage: CaseIterable {
         }
     }
 
-    /// Premium dashboard label for Dynamic Island
     var islandLabel: String {
         switch self {
-        case .ready: "PRIMING 01/05"
+        case .ready: "PREPARING 01/05"
         case .work1: "DOMINATING 02/05"
         case .rest1: "RECOVERING 03/05"
         case .work2: "DOMINATING 04/05"
@@ -63,12 +62,15 @@ enum PomodoroStage: CaseIterable {
 
 @MainActor
 final class TimerViewModel: ObservableObject {
+    static let shared = TimerViewModel()
+
     @Published var currentStage: PomodoroStage = .ready
     @Published var timeRemaining: TimeInterval = PomodoroStage.ready.duration
     @Published var isRunning = false
     @Published var isCompressing = false
     @Published var compressionMultiplier: Double = 1.0
 
+    private var intentObserver: AnyCancellable?
     private var timer: AnyCancellable?
     private var stageEndDate: Date?
     private var pausedRemaining: TimeInterval?
@@ -77,26 +79,30 @@ final class TimerViewModel: ObservableObject {
     private var lastVirtualSecond: Int = Int.max
     private var lastLiveActivityUpdate: Date = .distantPast
     #if os(iOS)
-    private var liveActivity: Activity<PomodoroAttributes>?
+    private var liveActivityID: String?
     #endif
 
     init() {
         #if os(iOS)
         if let existing = Activity<PomodoroAttributes>.activities.first {
-            liveActivity = existing
+            liveActivityID = existing.id
         }
         #endif
+        intentObserver = NotificationCenter.default
+            .publisher(for: .toggleTimerIntent)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.toggleFromIntent() }
     }
 
     // MARK: - Gesture Handlers
 
     func togglePlayPause() {
         hapticHeavy()
-        if isRunning {
-            pause()
-        } else {
-            play()
-        }
+        if isRunning { pause() } else { play() }
+    }
+
+    func toggleFromIntent() {
+        if isRunning { pause() } else { play() }
     }
 
     func startCompression() {
@@ -116,28 +122,24 @@ final class TimerViewModel: ObservableObject {
     // MARK: - Scene Phase
 
     func sceneDidEnterBackground() {
-        // Island stays alive in background — update it with latest state
-        updateLiveActivity(force: true)
+        pushLiveActivityUpdate(force: true)
         guard isRunning else { return }
         backgroundDate = Date()
     }
 
     func sceneDidEnterForeground() {
-        // Re-adopt if our reference was lost (e.g. after a crash restart)
         #if os(iOS)
-        if liveActivity == nil {
-            liveActivity = Activity<PomodoroAttributes>.activities.first
+        if liveActivityID == nil {
+            liveActivityID = Activity<PomodoroAttributes>.activities.first?.id
         }
         #endif
 
         guard isRunning, let bg = backgroundDate else {
-            // Not running — just refresh the Island state
-            updateLiveActivity(force: true)
+            pushLiveActivityUpdate(force: true)
             return
         }
         backgroundDate = nil
-        let elapsed = Date().timeIntervalSince(bg)
-        fastForward(elapsed)
+        fastForward(Date().timeIntervalSince(bg))
     }
 
     // MARK: - Timer Core
@@ -149,6 +151,9 @@ final class TimerViewModel: ObservableObject {
         pausedRemaining = nil
         startTicker()
         startOrUpdateLiveActivity()
+        #if os(iOS)
+        UIApplication.shared.isIdleTimerDisabled = true
+        #endif
     }
 
     private func pause() {
@@ -160,26 +165,23 @@ final class TimerViewModel: ObservableObject {
             timeRemaining = pausedRemaining!
         }
         stageEndDate = nil
-        updateLiveActivity(force: true)
+        pushLiveActivityUpdate(force: true)
+        #if os(iOS)
+        UIApplication.shared.isIdleTimerDisabled = false
+        #endif
     }
 
     private func startTicker() {
         timer?.cancel()
         timer = Timer.publish(every: 0.1, on: .main, in: .common)
             .autoconnect()
-            .sink { [weak self] _ in
-                self?.tick()
-            }
+            .sink { [weak self] _ in self?.tick() }
     }
 
     private func tick() {
         guard let end = stageEndDate else { return }
 
         if isCompressing, let startDate = compressionStartDate {
-            // Dual-stage piecewise exponential (elapsed from 0.5s trigger):
-            // Stage 1 (0–1.5s): 1x → 120x  using 120^(t/1.5)
-            // Stage 2 (1.5–2.5s): 120x → 240x  using 120 * 2^((t-1.5)/1.0)
-            // Continuous and smooth at the 120x boundary.
             let elapsed = Date().timeIntervalSince(startDate)
             if elapsed <= 1.5 {
                 compressionMultiplier = pow(120.0, elapsed / 1.5)
@@ -192,9 +194,6 @@ final class TimerViewModel: ObservableObject {
 
         let remaining = max(0, (stageEndDate ?? end).timeIntervalSince(Date()))
 
-        // 1:1 haptic sync — one .soft tap per virtual second skipped.
-        // .soft is the lightest UIKit style, distinct from the .heavy single-tap.
-        // 120x max → up to 12 skipped seconds per 0.1s tick, well within Taptic Engine limits.
         if isCompressing {
             let currentSecond = Int(remaining)
             let skipped = max(0, lastVirtualSecond - currentSecond)
@@ -207,7 +206,7 @@ final class TimerViewModel: ObservableObject {
         if remaining <= 0 {
             advanceStage()
         } else if isCompressing {
-            updateLiveActivity()
+            pushLiveActivityUpdate()
         }
     }
 
@@ -220,16 +219,13 @@ final class TimerViewModel: ObservableObject {
         currentStage = currentStage.next
         timeRemaining = currentStage.duration
         stageEndDate = Date().addingTimeInterval(currentStage.duration)
-        updateLiveActivity(force: true)
+        pushLiveActivityUpdate(force: true)
     }
 
     private func fastForward(_ elapsed: TimeInterval) {
         var remaining = elapsed
         var stage = currentStage
-        var stageTime = max(0, (stageEndDate ?? Date()).timeIntervalSince(Date().addingTimeInterval(-elapsed) ))
-
-        // Recalculate from what was left before background
-        stageTime = timeRemaining
+        var stageTime = timeRemaining
 
         while remaining >= stageTime {
             remaining -= stageTime
@@ -240,107 +236,98 @@ final class TimerViewModel: ObservableObject {
         currentStage = stage
         timeRemaining = stageTime - remaining
         stageEndDate = Date().addingTimeInterval(timeRemaining)
-        updateLiveActivity(force: true)
+        pushLiveActivityUpdate(force: true)
     }
 
-    // MARK: - Live Activity
+    // MARK: - Live Activity (all async, never blocks main thread)
 
     #if os(iOS)
-    private func liveActivityState() -> PomodoroAttributes.ContentState {
-        let expiry = stageEndDate ?? Date().addingTimeInterval(timeRemaining)
+    private func buildState() -> PomodoroAttributes.ContentState {
+        let elapsed = currentStage.duration - timeRemaining
+        let start = Date().addingTimeInterval(-elapsed)
+        let allCases = PomodoroStage.allCases
+        let idx = allCases.firstIndex(of: currentStage) ?? 0
         return .init(
-            stageName: currentStage.islandLabel,
-            stageColorHex: currentStage.colorHex,
-            timeRemaining: timeRemaining,
-            totalDuration: currentStage.duration,
-            expiryDate: expiry,
-            isPaused: !isRunning
+            title: currentStage.islandLabel,
+            totalSeconds: currentStage.duration,
+            sessionCount: idx + 1,
+            isPaused: !isRunning,
+            currentTaskID: String(describing: currentStage),
+            startTime: start
         )
+    }
+
+    private func findActivity() -> Activity<PomodoroAttributes>? {
+        guard let id = liveActivityID else { return nil }
+        return Activity<PomodoroAttributes>.activities.first { $0.id == id }
     }
     #endif
 
     private func startOrUpdateLiveActivity() {
         #if os(iOS)
-        // If we have a valid reference, just update it
-        if liveActivity != nil {
-            updateLiveActivity(force: true)
+        // If we already have one, just update
+        if let activity = findActivity() {
+            let state = buildState()
+            Task { await activity.update(.init(state: state, staleDate: nil)) }
             return
         }
-        // Try to adopt an existing activity (e.g. from a previous session)
-        if let existing = Activity<PomodoroAttributes>.activities.first {
-            liveActivity = existing
-            updateLiveActivity(force: true)
-            return
-        }
-        // No existing activity — create a fresh one
+
+        // Create fresh — fire and forget inside Task, never blocks main thread
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = PomodoroAttributes()
-        let state = liveActivityState()
-        liveActivity = try? Activity.request(
-            attributes: attributes,
-            content: .init(state: state, staleDate: nil)
-        )
+        let state = buildState()
+        Task { @MainActor in
+            let activity = try? Activity.request(
+                attributes: attributes,
+                content: .init(state: state, staleDate: nil)
+            )
+            self.liveActivityID = activity?.id
+        }
         #endif
     }
 
-    private func updateLiveActivity(force: Bool = false) {
+    private func pushLiveActivityUpdate(force: Bool = false) {
         #if os(iOS)
-        guard let activity = liveActivity else { return }
-        // Throttle to every 0.5s during normal ticks; always push on force (stage change, pause, etc.)
+        guard let activity = findActivity() else { return }
         let now = Date()
         guard force || now.timeIntervalSince(lastLiveActivityUpdate) >= 0.5 else { return }
         lastLiveActivityUpdate = now
-        let state = liveActivityState()
-        Task {
-            await activity.update(.init(state: state, staleDate: state.expiryDate))
-        }
+        let state = buildState()
+        Task { await activity.update(.init(state: state, staleDate: nil)) }
         #endif
     }
 
     func endLiveActivity() {
         #if os(iOS)
-        guard let activity = liveActivity else { return }
-        let state = liveActivityState()
-        Task {
-            await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .immediate)
-        }
-        liveActivity = nil
+        guard let activity = findActivity() else { return }
+        let state = buildState()
+        Task { await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .immediate) }
+        liveActivityID = nil
         #endif
     }
 
     // MARK: - Haptics
 
-    private func hapticLight() {
-        #if os(iOS)
-        let gen = UIImpactFeedbackGenerator(style: .light)
-        gen.impactOccurred()
-        #endif
-    }
-
     private func hapticSoft() {
         #if os(iOS)
-        let gen = UIImpactFeedbackGenerator(style: .soft)
-        gen.impactOccurred()
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         #endif
     }
 
     private func hapticHeavy() {
         #if os(iOS)
-        let gen = UIImpactFeedbackGenerator(style: .heavy)
-        gen.impactOccurred()
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         #endif
     }
 
     private func hapticMedium() {
         #if os(iOS)
-        let gen = UIImpactFeedbackGenerator(style: .medium)
-        gen.impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         #endif
     }
 
     private func hapticWarning() {
         #if os(iOS)
-        // Subtle double-tap feel — professional, not jarring
         let gen = UIImpactFeedbackGenerator(style: .light)
         gen.prepare()
         gen.impactOccurred(intensity: 0.6)

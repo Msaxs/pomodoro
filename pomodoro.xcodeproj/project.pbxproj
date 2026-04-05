@@ -44,6 +44,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				PomodoroAttributes.swift,
+				ToggleTimerIntent.swift,
 			);
 			target = C6FC64062F81060C000D5D5F /* PomodoroWidgetExtension */;
 		};

@@ -13,15 +13,9 @@ final class ActivityManager {
     }
 
     func terminateAllNow() {
-        Task {
-            await MainActor.run {
-                let activities = Activity<PomodoroAttributes>.activities
-                for activity in activities {
-                    Task {
-                        await activity.end(nil, dismissalPolicy: .immediate)
-                    }
-                }
-            }
+        let activities = Activity<PomodoroAttributes>.activities
+        for activity in activities {
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
         }
     }
 }

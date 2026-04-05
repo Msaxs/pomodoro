@@ -1,5 +1,5 @@
 import Foundation
-#if os(iOS)
+#if canImport(ActivityKit)
 import ActivityKit
 
 public struct PomodoroAttributes: ActivityAttributes, Sendable {

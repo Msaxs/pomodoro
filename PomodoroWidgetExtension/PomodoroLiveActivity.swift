@@ -22,8 +22,7 @@ struct PomodoroLiveActivity: Widget {
         let tint = s.isPaused ? dimmedAmber : amber
         let dotColor = s.isPaused ? dimmedGray : amber
         let fade: Double = s.isPaused ? 0.5 : 1.0
-        let elapsed = Date().timeIntervalSince(s.startTime)
-        let remaining = max(0, s.totalSeconds - elapsed)
+        let remaining = computeRemaining(s)
         let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
 
         return DynamicIsland {
@@ -55,17 +54,9 @@ struct PomodoroLiveActivity: Widget {
                         }
                     }
 
-                    Capsule()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(height: 3)
-                        .overlay(alignment: .leading) {
-                            GeometryReader { geo in
-                                Capsule()
-                                    .fill(tint)
-                                    .frame(width: geo.size.width * progress(s))
-                            }
-                        }
-                        .clipShape(Capsule())
+                    // Progress bar — no GeometryReader (unsupported in Live Activities)
+                    ProgressView(value: progress(s))
+                        .tint(tint)
                         .padding(.horizontal, 8)
                 }
                 .padding(.horizontal, 12)
@@ -95,8 +86,7 @@ struct PomodoroLiveActivity: Widget {
     private func lockScreenView(state s: PomodoroAttributes.ContentState) -> some View {
         let tint = s.isPaused ? dimmedAmber : amber
         let fade: Double = s.isPaused ? 0.5 : 1.0
-        let elapsed = Date().timeIntervalSince(s.startTime)
-        let remaining = max(0, s.totalSeconds - elapsed)
+        let remaining = computeRemaining(s)
         let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
 
         VStack(spacing: 10) {
@@ -122,17 +112,8 @@ struct PomodoroLiveActivity: Widget {
                 }
             }
 
-            Capsule()
-                .fill(Color.white.opacity(0.1))
-                .frame(height: 3)
-                .overlay(alignment: .leading) {
-                    GeometryReader { geo in
-                        Capsule()
-                            .fill(tint)
-                            .frame(width: geo.size.width * progress(s))
-                    }
-                }
-                .clipShape(Capsule())
+            ProgressView(value: progress(s))
+                .tint(tint)
                 .padding(.horizontal, 8)
         }
         .padding(.horizontal, 16)
@@ -164,6 +145,11 @@ struct PomodoroLiveActivity: Widget {
 
     private func expandedName(_ title: String) -> String {
         title.components(separatedBy: " ").first ?? title
+    }
+
+    private func computeRemaining(_ s: PomodoroAttributes.ContentState) -> Double {
+        let elapsed = Date().timeIntervalSince(s.startTime)
+        return max(0, s.totalSeconds - elapsed)
     }
 
     private func progress(_ s: PomodoroAttributes.ContentState) -> Double {

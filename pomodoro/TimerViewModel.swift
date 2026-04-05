@@ -91,7 +91,11 @@ final class TimerViewModel: ObservableObject {
         intentObserver = NotificationCenter.default
             .publisher(for: .toggleTimerIntent)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.toggleFromIntent() }
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.toggleFromIntent()
+                }
+            }
     }
 
     // MARK: - Gesture Handlers

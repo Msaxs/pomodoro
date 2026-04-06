@@ -62,6 +62,7 @@ enum PomodoroStage: CaseIterable {
 
 @MainActor
 final class TimerViewModel: ObservableObject {
+    static let shared = TimerViewModel()
 
     @Published var currentStage: PomodoroStage = .ready
     @Published var timeRemaining: TimeInterval = PomodoroStage.ready.duration
@@ -81,15 +82,10 @@ final class TimerViewModel: ObservableObject {
     private var liveActivityID: String?
     #endif
 
-    nonisolated init() {
-        // ActivityKit adoption deferred to sceneDidEnterForeground()
-    }
-
-    func setupObservers() {
-        guard intentObserver == nil else { return }
+    init() {
         #if os(iOS)
-        if liveActivityID == nil {
-            liveActivityID = Activity<PomodoroAttributes>.activities.first?.id
+        if let existing = Activity<PomodoroAttributes>.activities.first {
+            liveActivityID = existing.id
         }
         #endif
         intentObserver = NotificationCenter.default

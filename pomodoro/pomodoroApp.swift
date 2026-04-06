@@ -30,13 +30,12 @@ struct pomodoroApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     #endif
 
-    @StateObject private var viewModel = TimerViewModel()
+    private var viewModel: TimerViewModel { TimerViewModel.shared }
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView(viewModel: viewModel)
-                .onAppear { viewModel.setupObservers() }
                 #if os(iOS)
                 .onReceive(
                     NotificationCenter.default.publisher(

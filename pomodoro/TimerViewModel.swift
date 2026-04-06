@@ -260,14 +260,25 @@ final class TimerViewModel: ObservableObject {
             Task { await activity.update(.init(state: state, staleDate: nil)) }
             return
         }
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let enabled = ActivityAuthorizationInfo().areActivitiesEnabled
+        print("🚀 areActivitiesEnabled: \(enabled)")
+        guard enabled else {
+            print("❌ Live Activities DISABLED in Settings")
+            return
+        }
         let attributes = PomodoroAttributes()
         let state = buildState()
-        let activity = try? Activity.request(
-            attributes: attributes,
-            content: .init(state: state, staleDate: nil)
-        )
-        liveActivityID = activity?.id
+        print("🚀 Requesting Island — title: \(state.title)")
+        do {
+            let activity = try Activity.request(
+                attributes: attributes,
+                content: .init(state: state, staleDate: nil)
+            )
+            liveActivityID = activity.id
+            print("🚀 Island ACTIVE — ID: \(activity.id)")
+        } catch {
+            print("❌ Island FAILED: \(error)")
+        }
         #endif
     }
 

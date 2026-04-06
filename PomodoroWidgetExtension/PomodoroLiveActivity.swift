@@ -17,6 +17,7 @@ struct PomodoroLiveActivity: Widget {
     private func islandView(state s: PomodoroAttributes.ContentState) -> DynamicIsland {
         let tint = s.isPaused ? dimmedAmber : amber
         let fade: Double = s.isPaused ? 0.5 : 1.0
+        let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
 
         return DynamicIsland {
             DynamicIslandExpandedRegion(.bottom) {
@@ -28,11 +29,7 @@ struct PomodoroLiveActivity: Widget {
 
                     Spacer()
 
-                    Text(formatted(remaining(s)))
-                        .font(.system(size: 18, weight: .medium, design: .monospaced))
-                        .monospacedDigit()
-                        .foregroundStyle(tint)
-                        .lineLimit(1)
+                    liveTimer(s, expiryDate: expiryDate, size: 18)
                         .fixedSize()
                 }
                 .padding(.horizontal, 12)
@@ -46,18 +43,12 @@ struct PomodoroLiveActivity: Widget {
                 .fixedSize()
                 .opacity(fade)
         } compactTrailing: {
-            Text(formatted(remaining(s)))
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(tint)
+            liveTimer(s, expiryDate: expiryDate, size: 11)
                 .frame(width: 44)
                 .fixedSize()
                 .opacity(fade)
         } minimal: {
-            Text(formatted(remaining(s)))
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(tint)
+            liveTimer(s, expiryDate: expiryDate, size: 10)
                 .opacity(fade)
         }
     }
@@ -66,6 +57,7 @@ struct PomodoroLiveActivity: Widget {
     private func lockScreenView(state s: PomodoroAttributes.ContentState) -> some View {
         let tint = s.isPaused ? dimmedAmber : amber
         let fade: Double = s.isPaused ? 0.5 : 1.0
+        let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
 
         HStack {
             Text(expandedName(s.title))
@@ -75,17 +67,32 @@ struct PomodoroLiveActivity: Widget {
 
             Spacer()
 
-            Text(formatted(remaining(s)))
-                .font(.system(size: 18, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(tint)
-                .lineLimit(1)
+            liveTimer(s, expiryDate: expiryDate, size: 18)
                 .fixedSize()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .opacity(fade)
         .background(Color.black)
+    }
+
+    // MARK: - Live Timer
+
+    @ViewBuilder
+    private func liveTimer(_ s: PomodoroAttributes.ContentState, expiryDate: Date, size: CGFloat) -> some View {
+        if s.isPaused {
+            Text(formatted(remaining(s)))
+                .font(.system(size: size, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(dimmedAmber)
+                .lineLimit(1)
+        } else {
+            Text(expiryDate, style: .timer)
+                .font(.system(size: size, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(amber)
+                .lineLimit(1)
+        }
     }
 
     // MARK: - Helpers

@@ -60,7 +60,6 @@ enum PomodoroStage: CaseIterable {
     }
 }
 
-@MainActor
 final class TimerViewModel: ObservableObject {
     static let shared = TimerViewModel()
 
@@ -91,11 +90,7 @@ final class TimerViewModel: ObservableObject {
         intentObserver = NotificationCenter.default
             .publisher(for: .toggleTimerIntent)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.toggleFromIntent()
-                }
-            }
+            .sink { [weak self] _ in self?.toggleFromIntent() }
     }
 
     // MARK: - Gesture Handlers
@@ -276,17 +271,15 @@ final class TimerViewModel: ObservableObject {
             return
         }
 
-        // Create fresh — fire and forget inside Task, never blocks main thread
+        // Create fresh
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = PomodoroAttributes()
         let state = buildState()
-        Task { @MainActor in
-            let activity = try? Activity.request(
-                attributes: attributes,
-                content: .init(state: state, staleDate: nil)
-            )
-            self.liveActivityID = activity?.id
-        }
+        let activity = try? Activity.request(
+            attributes: attributes,
+            content: .init(state: state, staleDate: nil)
+        )
+        liveActivityID = activity?.id
         #endif
     }
 

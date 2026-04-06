@@ -28,8 +28,8 @@ struct PomodoroLiveActivity: Widget {
 
                     Spacer()
 
-                    Text(formatted(remaining(s)))
-                        .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    Text(expiryDate, style: .timer)
+                        .font(.system(size: 18, weight: .medium, design: .monospaced))
                         .monospacedDigit()
                         .foregroundStyle(.orange)
                         .fixedSize()
@@ -56,6 +56,8 @@ struct PomodoroLiveActivity: Widget {
 
     @ViewBuilder
     private func lockScreenView(state s: PomodoroAttributes.ContentState) -> some View {
+        let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
+
         HStack {
             Text(expandedName(s.title))
                 .font(.caption.monospaced().bold())
@@ -63,7 +65,7 @@ struct PomodoroLiveActivity: Widget {
 
             Spacer()
 
-            Text(formatted(remaining(s)))
+            Text(expiryDate, style: .timer)
                 .font(.system(size: 18, weight: .medium, design: .monospaced))
                 .monospacedDigit()
                 .foregroundStyle(.orange)

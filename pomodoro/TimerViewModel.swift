@@ -81,10 +81,15 @@ final class TimerViewModel: ObservableObject {
     private var liveActivityID: String?
     #endif
 
-    init() {
+    nonisolated init() {
+        // ActivityKit adoption deferred to sceneDidEnterForeground()
+    }
+
+    func setupObservers() {
+        guard intentObserver == nil else { return }
         #if os(iOS)
-        if let existing = Activity<PomodoroAttributes>.activities.first {
-            liveActivityID = existing.id
+        if liveActivityID == nil {
+            liveActivityID = Activity<PomodoroAttributes>.activities.first?.id
         }
         #endif
         intentObserver = NotificationCenter.default

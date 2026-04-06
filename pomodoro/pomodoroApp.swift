@@ -36,8 +36,8 @@ struct pomodoroApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(viewModel: viewModel)
+                .onAppear { viewModel.setupObservers() }
                 #if os(iOS)
-                // Belt-and-suspenders: notification fires for system-initiated termination
                 .onReceive(
                     NotificationCenter.default.publisher(
                         for: UIApplication.willTerminateNotification

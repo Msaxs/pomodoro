@@ -23,18 +23,19 @@ struct PomodoroLiveActivity: Widget {
             DynamicIslandExpandedRegion(.bottom) {
                 HStack {
                     Text(expandedName(s.title))
-                        .font(.system(.caption, design: .monospaced).bold())
-                        .foregroundStyle(tint)
-                        .lineLimit(1)
+                        .font(.caption.monospaced().bold())
+                        .foregroundStyle(.orange)
 
                     Spacer()
 
-                    liveTimer(s, expiryDate: expiryDate, size: 18)
+                    Text(formatted(remaining(s)))
+                        .font(.system(size: 16, weight: .medium, design: .monospaced))
+                        .monospacedDigit()
+                        .foregroundStyle(.orange)
                         .fixedSize()
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
-                .opacity(fade)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 10)
             }
         } compactLeading: {
             Circle()

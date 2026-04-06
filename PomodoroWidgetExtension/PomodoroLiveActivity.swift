@@ -56,24 +56,22 @@ struct PomodoroLiveActivity: Widget {
 
     @ViewBuilder
     private func lockScreenView(state s: PomodoroAttributes.ContentState) -> some View {
-        let tint = s.isPaused ? dimmedAmber : amber
-        let fade: Double = s.isPaused ? 0.5 : 1.0
-        let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
-
         HStack {
             Text(expandedName(s.title))
-                .font(.system(.caption, design: .monospaced).bold())
-                .foregroundStyle(tint)
-                .lineLimit(1)
+                .font(.caption.monospaced().bold())
+                .foregroundStyle(.orange)
 
             Spacer()
 
-            liveTimer(s, expiryDate: expiryDate, size: 18)
+            Text(formatted(remaining(s)))
+                .font(.system(size: 18, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(.orange)
                 .fixedSize()
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .opacity(fade)
         .background(Color.black)
     }
 

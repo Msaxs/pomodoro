@@ -60,8 +60,8 @@ enum PomodoroStage: CaseIterable {
     }
 }
 
+@MainActor
 final class TimerViewModel: ObservableObject {
-    static let shared = TimerViewModel()
 
     @Published var currentStage: PomodoroStage = .ready
     @Published var timeRemaining: TimeInterval = PomodoroStage.ready.duration

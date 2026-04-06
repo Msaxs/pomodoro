@@ -30,7 +30,7 @@ struct pomodoroApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     #endif
 
-    private var viewModel: TimerViewModel { TimerViewModel.shared }
+    @StateObject private var viewModel = TimerViewModel()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {

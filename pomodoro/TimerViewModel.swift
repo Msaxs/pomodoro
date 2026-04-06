@@ -2,9 +2,10 @@ import SwiftUI
 import Combine
 #if os(iOS)
 import ActivityKit
+import UIKit
 #endif
 
-enum PomodoroStage: CaseIterable {
+enum PomodoroStage: CaseIterable, Sendable {
     case ready, work1, rest1, work2, rest2
 
     var duration: TimeInterval {
@@ -44,15 +45,6 @@ enum PomodoroStage: CaseIterable {
         }
     }
 
-    var colorHex: String {
-        switch self {
-        case .ready: "#FFA500"
-        case .work1, .work2: "#B31A1A"
-        case .rest1: "#99E699"
-        case .rest2: "#33B366"
-        }
-    }
-
     var next: PomodoroStage {
         let all = PomodoroStage.allCases
         let idx = all.firstIndex(of: self)!
@@ -60,10 +52,7 @@ enum PomodoroStage: CaseIterable {
     }
 }
 
-@MainActor
 final class TimerViewModel: ObservableObject {
-    static let shared = TimerViewModel()
-
     @Published var currentStage: PomodoroStage = .ready
     @Published var timeRemaining: TimeInterval = PomodoroStage.ready.duration
     @Published var isRunning = false
@@ -84,9 +73,7 @@ final class TimerViewModel: ObservableObject {
 
     init() {
         #if os(iOS)
-        if let existing = Activity<PomodoroAttributes>.activities.first {
-            liveActivityID = existing.id
-        }
+        liveActivityID = Activity<PomodoroAttributes>.activities.first?.id
         #endif
         intentObserver = NotificationCenter.default
             .publisher(for: .toggleTimerIntent)
@@ -133,7 +120,6 @@ final class TimerViewModel: ObservableObject {
             liveActivityID = Activity<PomodoroAttributes>.activities.first?.id
         }
         #endif
-
         guard isRunning, let bg = backgroundDate else {
             pushLiveActivityUpdate(force: true)
             return
@@ -152,7 +138,9 @@ final class TimerViewModel: ObservableObject {
         startTicker()
         startOrUpdateLiveActivity()
         #if os(iOS)
-        UIApplication.shared.isIdleTimerDisabled = true
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
         #endif
     }
 
@@ -167,7 +155,9 @@ final class TimerViewModel: ObservableObject {
         stageEndDate = nil
         pushLiveActivityUpdate(force: true)
         #if os(iOS)
-        UIApplication.shared.isIdleTimerDisabled = false
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
         #endif
     }
 
@@ -239,7 +229,7 @@ final class TimerViewModel: ObservableObject {
         pushLiveActivityUpdate(force: true)
     }
 
-    // MARK: - Live Activity (all async, never blocks main thread)
+    // MARK: - Live Activity
 
     #if os(iOS)
     private func buildState() -> PomodoroAttributes.ContentState {
@@ -265,14 +255,11 @@ final class TimerViewModel: ObservableObject {
 
     private func startOrUpdateLiveActivity() {
         #if os(iOS)
-        // If we already have one, just update
         if let activity = findActivity() {
             let state = buildState()
             Task { await activity.update(.init(state: state, staleDate: nil)) }
             return
         }
-
-        // Create fresh
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = PomodoroAttributes()
         let state = buildState()

@@ -1,10 +1,3 @@
-//
-//  pomodoroApp.swift
-//  pomodoro
-//
-//  Created by msaxs_Lam on 4/4/2026.
-//
-
 import SwiftUI
 #if os(iOS)
 import UIKit
@@ -17,7 +10,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         .landscape
     }
 
-    // Called by iOS before the process is terminated — block until Island is gone
     func applicationWillTerminate(_ application: UIApplication) {
         ActivityManager.shared.terminateAllNow()
     }
@@ -30,7 +22,7 @@ struct pomodoroApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     #endif
 
-    private var viewModel: TimerViewModel { TimerViewModel.shared }
+    @StateObject private var viewModel = TimerViewModel()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -50,7 +42,6 @@ struct pomodoroApp: App {
             switch newPhase {
             case .background:
                 viewModel.sceneDidEnterBackground()
-                // Island stays alive — it will persist in background
             case .active:
                 viewModel.sceneDidEnterForeground()
             case .inactive:

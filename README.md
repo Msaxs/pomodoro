@@ -31,21 +31,10 @@ A landscape-only focus timer. Tap to start. Hold to accelerate. No buttons.
 
 ---
 
-## Dynamic Island
-
-- **Compact:** Amber dot + live countdown
-- **Expanded:** Stage name, timer, progress bar
-- **Paused:** Dims
-- **Force-quit:** Disappears immediately
-
----
-
 ## Design Principles
 
 - No buttons
 - Landscape only
-- Haptics sync with speed
-- Amber `#FFBF00` throughout
 
 ---
 

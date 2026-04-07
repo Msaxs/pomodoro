@@ -40,6 +40,6 @@ A landscape-only focus timer. Tap to start. Hold to accelerate. No buttons.
 
 ## Requirements
 
-- iPhone with Dynamic Island (iPhone 14 Pro or later)
+- iPhone
 - iOS 18+
 - Xcode 16+

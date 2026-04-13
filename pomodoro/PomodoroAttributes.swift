@@ -10,6 +10,9 @@ public struct PomodoroAttributes: ActivityAttributes, Sendable {
         var isPaused: Bool
         var currentTaskID: String
         var startTime: Date
+        var remainingSeconds: Double
+        var stageStart: Date
+        var stageDuration: Double
     }
 }
 #endif

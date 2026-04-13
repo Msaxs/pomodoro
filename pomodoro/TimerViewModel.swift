@@ -3,6 +3,7 @@ import Combine
 #if os(iOS)
 import ActivityKit
 import UIKit
+import UserNotifications
 #endif
 
 enum PomodoroStage: CaseIterable, Sendable {
@@ -20,8 +21,8 @@ enum PomodoroStage: CaseIterable, Sendable {
 
     var backgroundColor: Color {
         switch self {
-        case .ready: Color.orange
-        case .work1, .work2: Color(red: 0.7, green: 0.1, blue: 0.1)
+        case .ready: Color(red: 0.35, green: 0.65, blue: 0.90)
+        case .work1, .work2: Color(red: 0.9, green: 0.6, blue: 0.0)
         case .rest1: Color(red: 0.6, green: 0.9, blue: 0.6)
         case .rest2: Color(red: 0.2, green: 0.7, blue: 0.4)
         }
@@ -45,6 +46,14 @@ enum PomodoroStage: CaseIterable, Sendable {
         }
     }
 
+    var accentColor: Color {
+        switch self {
+        case .ready: Color(red: 0.78, green: 0.92, blue: 1.0)
+        case .work1, .work2: Color(red: 0.9, green: 0.6, blue: 0.0)
+        case .rest1, .rest2: Color(red: 0.6, green: 0.95, blue: 0.6)
+        }
+    }
+
     var next: PomodoroStage {
         let all = PomodoroStage.allCases
         let idx = all.firstIndex(of: self)!
@@ -52,6 +61,7 @@ enum PomodoroStage: CaseIterable, Sendable {
     }
 }
 
+@MainActor
 final class TimerViewModel: ObservableObject {
     @Published var currentStage: PomodoroStage = .ready
     @Published var timeRemaining: TimeInterval = PomodoroStage.ready.duration
@@ -60,8 +70,12 @@ final class TimerViewModel: ObservableObject {
     @Published var compressionMultiplier: Double = 1.0
 
     private var intentObserver: AnyCancellable?
-    private var timer: AnyCancellable?
+    private var timerTask: Task<Void, Never>?
+    #if os(iOS)
+    private let stageChangeHaptic = UINotificationFeedbackGenerator()
+    #endif
     private var stageEndDate: Date?
+    private var stageStartDate: Date = Date()
     private var pausedRemaining: TimeInterval?
     private var backgroundDate: Date?
     private var compressionStartDate: Date?
@@ -74,6 +88,7 @@ final class TimerViewModel: ObservableObject {
     init() {
         #if os(iOS)
         liveActivityID = Activity<PomodoroAttributes>.activities.first?.id
+        UNUserNotificationCenter.current().requestAuthorization(options: [.sound, .badge]) { _, _ in }
         #endif
         intentObserver = NotificationCenter.default
             .publisher(for: .toggleTimerIntent)
@@ -104,6 +119,8 @@ final class TimerViewModel: ObservableObject {
         isCompressing = false
         compressionMultiplier = 1.0
         compressionStartDate = nil
+        stageStartDate = Date().addingTimeInterval(-(currentStage.duration - timeRemaining))
+        pushLiveActivityUpdate(force: true)
     }
 
     // MARK: - Scene Phase
@@ -133,21 +150,24 @@ final class TimerViewModel: ObservableObject {
     private func play() {
         isRunning = true
         let remaining = pausedRemaining ?? timeRemaining
-        stageEndDate = Date().addingTimeInterval(remaining)
+        let end = Date().addingTimeInterval(remaining)
+        stageEndDate = end
+        stageStartDate = Date().addingTimeInterval(-(currentStage.duration - remaining))
         pausedRemaining = nil
         startTicker()
         startOrUpdateLiveActivity()
         #if os(iOS)
-        DispatchQueue.main.async {
-            UIApplication.shared.isIdleTimerDisabled = true
-        }
+        stageChangeHaptic.prepare()
+        #endif
+        #if os(iOS)
+        UIApplication.shared.isIdleTimerDisabled = true
         #endif
     }
 
     private func pause() {
         isRunning = false
-        timer?.cancel()
-        timer = nil
+        timerTask?.cancel()
+        timerTask = nil
         if let end = stageEndDate {
             pausedRemaining = max(0, end.timeIntervalSince(Date()))
             timeRemaining = pausedRemaining!
@@ -155,17 +175,19 @@ final class TimerViewModel: ObservableObject {
         stageEndDate = nil
         pushLiveActivityUpdate(force: true)
         #if os(iOS)
-        DispatchQueue.main.async {
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
+        UIApplication.shared.isIdleTimerDisabled = false
         #endif
     }
 
     private func startTicker() {
-        timer?.cancel()
-        timer = Timer.publish(every: 0.1, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in self?.tick() }
+        timerTask?.cancel()
+        timerTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { break }
+                self?.tick()
+            }
+        }
     }
 
     private func tick() {
@@ -195,20 +217,24 @@ final class TimerViewModel: ObservableObject {
 
         if remaining <= 0 {
             advanceStage()
-        } else if isCompressing {
+        } else {
             pushLiveActivityUpdate()
         }
     }
 
     private func advanceStage() {
-        hapticMedium()
+        hapticStageChange()
         isCompressing = false
         compressionMultiplier = 1.0
         compressionStartDate = nil
         lastVirtualSecond = Int.max
         currentStage = currentStage.next
         timeRemaining = currentStage.duration
-        stageEndDate = Date().addingTimeInterval(currentStage.duration)
+        let newEnd = Date().addingTimeInterval(currentStage.duration)
+        stageEndDate = newEnd
+        stageStartDate = Date()
+        isRunning = true
+        startTicker()
         pushLiveActivityUpdate(force: true)
     }
 
@@ -226,6 +252,7 @@ final class TimerViewModel: ObservableObject {
         currentStage = stage
         timeRemaining = stageTime - remaining
         stageEndDate = Date().addingTimeInterval(timeRemaining)
+        stageStartDate = Date().addingTimeInterval(-(currentStage.duration - timeRemaining))
         pushLiveActivityUpdate(force: true)
     }
 
@@ -233,17 +260,19 @@ final class TimerViewModel: ObservableObject {
 
     #if os(iOS)
     private func buildState() -> PomodoroAttributes.ContentState {
-        let elapsed = currentStage.duration - timeRemaining
-        let start = Date().addingTimeInterval(-elapsed)
+        let remaining = max(0, timeRemaining)
         let allCases = PomodoroStage.allCases
         let idx = allCases.firstIndex(of: currentStage) ?? 0
         return .init(
             title: currentStage.islandLabel,
-            totalSeconds: currentStage.duration,
+            totalSeconds: remaining,
             sessionCount: idx + 1,
             isPaused: !isRunning,
             currentTaskID: String(describing: currentStage),
-            startTime: start
+            startTime: Date(),
+            remainingSeconds: remaining,
+            stageStart: stageStartDate,
+            stageDuration: currentStage.duration
         )
     }
 
@@ -257,7 +286,9 @@ final class TimerViewModel: ObservableObject {
         #if os(iOS)
         if let activity = findActivity() {
             let state = buildState()
-            Task { await activity.update(.init(state: state, staleDate: nil)) }
+            print("🔄 Syncing: \(state.title) at \(state.remainingSeconds)s")
+            let content = ActivityContent(state: state, staleDate: nil, relevanceScore: 100)
+            Task { await activity.update(content) }
             return
         }
         let enabled = ActivityAuthorizationInfo().areActivitiesEnabled
@@ -268,13 +299,15 @@ final class TimerViewModel: ObservableObject {
         }
         let attributes = PomodoroAttributes()
         let state = buildState()
-        print("🚀 Requesting Island — title: \(state.title)")
+        print("🚀 Requesting Island — title: \(state.title) at \(state.remainingSeconds)s")
         do {
+            let content = ActivityContent(state: state, staleDate: nil, relevanceScore: 100)
             let activity = try Activity.request(
                 attributes: attributes,
-                content: .init(state: state, staleDate: nil)
+                content: content
             )
             liveActivityID = activity.id
+            lastLiveActivityUpdate = Date()
             print("🚀 Island ACTIVE — ID: \(activity.id)")
         } catch {
             print("❌ Island FAILED: \(error)")
@@ -286,10 +319,22 @@ final class TimerViewModel: ObservableObject {
         #if os(iOS)
         guard let activity = findActivity() else { return }
         let now = Date()
-        guard force || now.timeIntervalSince(lastLiveActivityUpdate) >= 0.5 else { return }
+        let remaining = timeRemaining
+        let interval: TimeInterval
+        let score: Double
+        if remaining <= 600 {
+            interval = 1.0
+            score = 100
+        } else {
+            interval = 30.0
+            score = 100
+        }
+        guard force || now.timeIntervalSince(lastLiveActivityUpdate) >= interval else { return }
         lastLiveActivityUpdate = now
         let state = buildState()
-        Task { await activity.update(.init(state: state, staleDate: nil)) }
+        print("🔄 Syncing: \(state.title) at \(state.remainingSeconds)s")
+        let content = ActivityContent(state: state, staleDate: nil, relevanceScore: score)
+        Task { await activity.update(content) }
         #endif
     }
 
@@ -297,7 +342,8 @@ final class TimerViewModel: ObservableObject {
         #if os(iOS)
         guard let activity = findActivity() else { return }
         let state = buildState()
-        Task { await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .immediate) }
+        let content = ActivityContent(state: state, staleDate: nil, relevanceScore: 100)
+        Task { await activity.end(content, dismissalPolicy: .immediate) }
         liveActivityID = nil
         #endif
     }
@@ -319,6 +365,17 @@ final class TimerViewModel: ObservableObject {
     private func hapticMedium() {
         #if os(iOS)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+    }
+
+    private func hapticStageChange() {
+        #if os(iOS)
+        stageChangeHaptic.notificationOccurred(.error)
+        stageChangeHaptic.prepare()
+        let content = UNMutableNotificationContent()
+        content.sound = .defaultCritical
+        let request = UNNotificationRequest(identifier: "stage-\(UUID().uuidString)", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
         #endif
     }
 

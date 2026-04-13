@@ -7,14 +7,23 @@
 
 import SwiftUI
 
+private let amber = Color(red: 1.0, green: 0.75, blue: 0.0)
+
 struct ContentView: View {
     @ObservedObject var viewModel: TimerViewModel
+    @State private var isPressing = false
+    @State private var isAccelerating = false
 
     var body: some View {
         ZStack {
             viewModel.currentStage.backgroundColor
                 .ignoresSafeArea()
                 .animation(.easeInOut(duration: 0.6), value: viewModel.currentStage)
+
+            Color.black
+                .ignoresSafeArea()
+                .opacity(isAccelerating ? 1.0 : 0.0)
+                .animation(.easeIn(duration: 0.8), value: isAccelerating)
 
             VStack(spacing: 4) {
                 Text(viewModel.currentStage.label)
@@ -30,20 +39,36 @@ struct ContentView: View {
                     .minimumScaleFactor(0.1)
                     .contentTransition(.numericText())
                     .blur(radius: blurRadius(for: viewModel.compressionMultiplier, max: 5))
+                    .shadow(color: viewModel.isCompressing ? viewModel.currentStage.accentColor : .clear,
+                            radius: viewModel.isCompressing ? 10 : 0)
             }
+            .animation(.easeInOut(duration: 0.5), value: viewModel.currentStage)
+            .opacity(isPressing ? 0.4 : (viewModel.isRunning ? 1.0 : 0.6))
+            .scaleEffect(isPressing ? 0.92 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: isPressing)
+            .animation(.easeInOut(duration: 0.3), value: viewModel.isCompressing)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.5)
+                    .onEnded { _ in
+                        isAccelerating = true
+                        viewModel.startCompression()
+                    }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isPressing = true }
+                    .onEnded { _ in
+                        isPressing = false
+                        if !isAccelerating {
+                            viewModel.togglePlayPause()
+                        }
+                        isAccelerating = false
+                        viewModel.stopCompression()
+                    }
+            )
         }
         .persistentSystemOverlays(.hidden)
         .statusBarHidden(true)
-        .onTapGesture {
-            viewModel.togglePlayPause()
-        }
-        .onLongPressGesture(minimumDuration: 0.5, pressing: { isPressing in
-            if isPressing {
-                viewModel.startCompression()
-            } else {
-                viewModel.stopCompression()
-            }
-        }, perform: {})
     }
 
     /// Blur kicks in above 20x, reaches cap at 120x.

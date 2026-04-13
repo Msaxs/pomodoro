@@ -2,8 +2,7 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-private let amber = Color(red: 1.0, green: 0.75, blue: 0.0)
-private let dimmedAmber = Color(red: 0.545, green: 0.396, blue: 0)
+private let amber = Color(red: 1.0, green: 0.75, blue: 0.0) // #FFBF00
 
 struct PomodoroLiveActivity: Widget {
     var body: some WidgetConfiguration {
@@ -14,101 +13,180 @@ struct PomodoroLiveActivity: Widget {
         }
     }
 
+    // MARK: - Dynamic Island
+
     private func islandView(state s: PomodoroAttributes.ContentState) -> DynamicIsland {
-        let tint = s.isPaused ? dimmedAmber : amber
-        let fade: Double = s.isPaused ? 0.5 : 1.0
         let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
+        let tint = stageColor(s.title)
 
         return DynamicIsland {
-            DynamicIslandExpandedRegion(.bottom) {
-                HStack {
-                    Text(expandedName(s.title))
-                        .font(.caption.monospaced().bold())
-                        .foregroundStyle(.orange)
-
-                    Spacer()
-
-                    Text(expiryDate, style: .timer)
-                        .font(.system(size: 18, weight: .medium, design: .monospaced))
-                        .monospacedDigit()
-                        .foregroundStyle(.orange)
-                        .fixedSize()
+            DynamicIslandExpandedRegion(.leading) {
+                ZStack(alignment: .bottomTrailing) {
+                    Circle()
+                        .stroke(s.isPaused ? Color.gray : tint, lineWidth: 3.5)
+                        .frame(width: 28, height: 28)
+                    Circle()
+                        .stroke(s.isPaused ? Color.gray.opacity(0.6) : nextStageColor(s.title), lineWidth: 2)
+                        .frame(width: 14, height: 14)
+                        .offset(x: 3, y: 3)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 10)
+                .frame(width: 34, height: 34)
+            }
+            DynamicIslandExpandedRegion(.trailing) {
+                timerText(s, expiryDate: expiryDate, size: 18)
+            }
+            DynamicIslandExpandedRegion(.bottom) {
+                thinProgressBar(s)
+                    .padding(.leading, 60)
+                    .padding(.trailing, 20)
+                    .offset(y: -8)
             }
         } compactLeading: {
-            Circle()
-                .fill(s.isPaused ? Color.gray.opacity(0.5) : amber)
-                .frame(width: 6, height: 6)
-                .fixedSize()
-                .opacity(fade)
+            ZStack(alignment: .center) {
+                ZStack(alignment: .bottomTrailing) {
+                    Circle()
+                        .stroke(s.isPaused ? Color.gray : tint, lineWidth: 2)
+                        .frame(width: 14, height: 14)
+                    Circle()
+                        .stroke(s.isPaused ? Color.gray.opacity(0.6) : nextStageColor(s.title), lineWidth: 1.5)
+                        .frame(width: 7, height: 7)
+                        .offset(x: 2, y: 2)
+                }
+            }
+            .frame(width: 26)
         } compactTrailing: {
-            liveTimer(s, expiryDate: expiryDate, size: 11)
-                .frame(width: 44)
+            Text(formatted(s.remainingSeconds))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+                .foregroundColor(s.isPaused ? tint.opacity(0.5) : tint)
+                .lineLimit(1)
                 .fixedSize()
-                .opacity(fade)
         } minimal: {
-            liveTimer(s, expiryDate: expiryDate, size: 10)
-                .opacity(fade)
+            Text(formatted(s.remainingSeconds))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+                .foregroundColor(s.isPaused ? tint.opacity(0.5) : tint)
+                .lineLimit(1)
         }
     }
+
+    // MARK: - Lock Screen
 
     @ViewBuilder
     private func lockScreenView(state s: PomodoroAttributes.ContentState) -> some View {
+        let tint = stageColor(s.title)
         let expiryDate = s.startTime.addingTimeInterval(s.totalSeconds)
 
-        HStack {
-            Text(expandedName(s.title))
-                .font(.caption.monospaced().bold())
-                .foregroundStyle(.orange)
+        HStack(spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Circle()
+                    .stroke(s.isPaused ? Color.gray : tint, lineWidth: 5)
+                    .frame(width: 42, height: 42)
+                Circle()
+                    .stroke(s.isPaused ? Color.gray.opacity(0.6) : nextStageColor(s.title), lineWidth: 3)
+                    .frame(width: 21, height: 21)
+                    .offset(x: 5, y: 5)
+            }
+            .frame(width: 48, height: 48)
 
-            Spacer()
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(stageName(s.title))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(s.isPaused ? tint.opacity(0.5) : tint)
 
-            Text(expiryDate, style: .timer)
-                .font(.system(size: 18, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(.orange)
-                .fixedSize()
+                    Spacer()
+
+                    timerText(s, expiryDate: expiryDate, size: 16)
+                }
+
+                thinProgressBar(s)
+                    .frame(height: 2)
+            }
         }
-        .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
         .background(Color.black)
     }
 
-    // MARK: - Live Timer
+    // MARK: - Shared Helpers
 
     @ViewBuilder
-    private func liveTimer(_ s: PomodoroAttributes.ContentState, expiryDate: Date, size: CGFloat) -> some View {
-        if s.isPaused {
-            Text(formatted(remaining(s)))
-                .font(.system(size: size, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(dimmedAmber)
-                .lineLimit(1)
-        } else {
-            Text(expiryDate, style: .timer)
-                .font(.system(size: size, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(amber)
-                .lineLimit(1)
+    private func timerText(_ s: PomodoroAttributes.ContentState, expiryDate: Date, size: CGFloat) -> some View {
+        let tint = stageColor(s.title)
+        Group {
+            if s.isPaused {
+                Text(formatted(s.remainingSeconds))
+            } else {
+                Text(expiryDate, style: .timer)
+                    .multilineTextAlignment(.trailing)
+            }
         }
+        .font(.system(size: size, weight: .bold, design: .monospaced))
+        .monospacedDigit()
+        .foregroundColor(s.isPaused ? tint.opacity(0.5) : tint)
+        .lineLimit(1)
+        .frame(width: size * 3.2, alignment: .trailing)
+    }
+
+    @ViewBuilder
+    private func thinProgressBar(_ s: PomodoroAttributes.ContentState) -> some View {
+        let tint = stageColor(s.title)
+        let elapsed = Date().timeIntervalSince(s.stageStart)
+        let progress = s.stageDuration > 0 ? min(max(elapsed / s.stageDuration, 0), 1) : 0
+
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(tint.opacity(0.2))
+                    .frame(height: 4)
+                Capsule()
+                    .fill(s.isPaused ? tint.opacity(0.4) : tint)
+                    .frame(width: geo.size.width * progress, height: 4)
+            }
+        }
+        .frame(height: 4)
     }
 
     // MARK: - Helpers
 
-    private func expandedName(_ title: String) -> String {
-        title.components(separatedBy: " ").first ?? title
+    private func stageColor(_ title: String) -> Color {
+        switch stageName(title) {
+        case "PREPARING":  return Color(red: 0.78, green: 0.92, blue: 1.0)
+        case "DOMINATING": return amber
+        case "RECOVERING": return Color(red: 0.6, green: 0.95, blue: 0.6)
+        default:           return amber
+        }
     }
 
-    private func remaining(_ s: PomodoroAttributes.ContentState) -> Double {
-        let elapsed = Date().timeIntervalSince(s.startTime)
-        return max(0, s.totalSeconds - elapsed)
+    private func nextStageColor(_ title: String) -> Color {
+        let parts = title.components(separatedBy: " ")
+        let name = parts.first ?? ""
+        let sessionNum = Int((parts.count > 1 ? parts[1] : "01/05").components(separatedBy: "/").first ?? "1") ?? 1
+
+        switch name {
+        case "PREPARING":  return amber
+        case "DOMINATING": return sessionNum >= 5
+                                ? Color(red: 0.2, green: 0.7, blue: 0.4)
+                                : Color(red: 0.6, green: 0.95, blue: 0.6)
+        default:           return Color(red: 0.78, green: 0.92, blue: 1.0)
+        }
+    }
+
+    private func stageName(_ title: String) -> String {
+        title.components(separatedBy: " ").first ?? title
     }
 
     private func formatted(_ time: Double) -> String {
         let t = Int(ceil(max(0, time)))
-        return String(format: "%02d:%02d", t / 60, t % 60)
+        let m = t / 60
+        let s = t % 60
+        if t > 600 {
+            return String(format: "%02d:--", m)
+        } else if t > 180 {
+            return String(format: "%02d:%d-", m, s / 10)
+        } else {
+            return String(format: "%02d:%02d", m, s)
+        }
     }
 }
